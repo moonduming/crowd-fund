@@ -6,19 +6,19 @@ pub enum ErrorCode {
     #[msg("Crowdfunding has not started")]
     NoStared,
 
-    #[msg("Donation amount is too large")]
-    AmountTooLarge,
+    #[msg("The campaign has expired.")]
+    CampaignExpired,
 
-    #[msg("The donation amount did not reach the set value")]
+    #[msg("Refund not allowed in the current state.")]
+    RefundNotAllowed,
+
+    #[msg("Withdrawal not allowed in the current state.")]
+    WithdrawalNotAllowed,
+
+    #[msg("Target amount not reached")]
     NotReaching,
 
-    #[msg("Duplicate extraction is prohibited.")]
-    RepeatedExtraction,
-
-    #[msg("Donation in progress")]
-    RefundFailed,
-
-    #[msg("Refund completed")]
-    Refunded,
+    #[msg("Donation record has already been refunded.")]
+    AlreadyRefunded
 }
 

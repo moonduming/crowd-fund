@@ -36,5 +36,9 @@ pub mod crowd_fund {
     pub fn refund(ctx: Context<Refund>) -> Result<()> {
         proccess_refund(ctx)
     }
+
+    pub fn finalize(ctx: Context<Finalize>) -> Result<()> {
+        proccess_finalize(ctx)
+    }
 }
 

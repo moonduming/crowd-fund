@@ -13,7 +13,8 @@ pub struct Crowdfund {
     pub target_amount: u64,
     pub raised_amount: u64,
     // 0: in progress 1: success 2: fail
-    pub state: u8
+    pub state: u8,
+    pub is_withdrawals: bool
 }
 
 

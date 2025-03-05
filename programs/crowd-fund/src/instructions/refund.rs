@@ -8,13 +8,13 @@ use crate::{error::ErrorCode, state::{Crowdfund, DonationRecord}};
 pub struct Refund<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    
-    pub crowdfund_key: SystemAccount<'info>,
 
+    pub maker: SystemAccount<'info>,
+    
     pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
-        seeds = [crowdfund_key.key().as_ref()],
+        seeds = [maker.key().as_ref()],
         bump
     )]
     pub crowfund_account: Account<'info, Crowdfund>,
@@ -29,7 +29,7 @@ pub struct Refund<'info> {
     #[account(
         mut,
         associated_token::mint = mint,
-        associated_token::authority = donation_token_account,
+        associated_token::authority = signer,
         associated_token::token_program = token_program
     )]
     pub donation_token_account: InterfaceAccount<'info, TokenAccount>,
@@ -37,7 +37,7 @@ pub struct Refund<'info> {
     #[account(
         mut,
         token::mint = mint,
-        token::authority = campaign_token_account,
+        token::authority = crowfund_account,
         seeds = [b"campaign", mint.key().as_ref()],
         bump
     )]
@@ -50,14 +50,15 @@ pub struct Refund<'info> {
 
 
 pub fn proccess_refund(ctx: Context<Refund>) -> Result<()> {
+    let crowdfunc_account_to_info = ctx.accounts.crowfund_account.to_account_info();
     let crowfund_account = &ctx.accounts.crowfund_account;
-    if crowfund_account.state < 2 {
-        return Err(ErrorCode::RefundFailed.into());
+    if crowfund_account.state != 2 {
+        return Err(ErrorCode::RefundNotAllowed.into());
     };
 
     let dontaion_record_account = &mut ctx.accounts.dontaion_record_account;
     if dontaion_record_account.is_refunded {
-        return Err(ErrorCode::Refunded.into());
+        return Err(ErrorCode::AlreadyRefunded.into());
     };
 
     let mint_key = ctx.accounts.mint.key();
@@ -71,7 +72,7 @@ pub fn proccess_refund(ctx: Context<Refund>) -> Result<()> {
         from: ctx.accounts.campaign_token_account.to_account_info(),
         to: ctx.accounts.donation_token_account.to_account_info(),
         mint: ctx.accounts.mint.to_account_info(),
-        authority: ctx.accounts.campaign_token_account.to_account_info()
+        authority: crowdfunc_account_to_info
     };
 
     let cpi_ctx = CpiContext::new_with_signer(

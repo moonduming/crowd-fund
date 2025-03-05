@@ -7,15 +7,15 @@ use crate::{error::ErrorCode, state::{Crowdfund, DonationRecord}};
 #[derive(Accounts)]
 pub struct InitDonationRecord<'info> {
     #[account(mut)]
-    pub payer: Signer<'info>,
+    pub donor: Signer<'info>,
 
-    pub donor: SystemAccount<'info>,
+    pub maker: SystemAccount<'info>,
 
     pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         mut,
-        seeds = [payer.key().as_ref()],
+        seeds = [maker.key().as_ref()],
         bump
     )]
     pub crowdfund_account: Account<'info, Crowdfund>,
@@ -23,7 +23,7 @@ pub struct InitDonationRecord<'info> {
     #[account(
         mut,
         token::mint = mint,
-        token::authority = campaign_token_account,
+        token::authority = crowdfund_account,
         seeds = [b"campaign", mint.key().as_ref()],
         bump
     )]
@@ -32,7 +32,7 @@ pub struct InitDonationRecord<'info> {
 
     #[account(
         init,
-        payer = payer,
+        payer = donor,
         space = 8 + DonationRecord::INIT_SPACE,
         seeds = [donor.key().as_ref()],
         bump
@@ -59,25 +59,22 @@ pub fn proccess_donation_record(ctx: Context<InitDonationRecord>, amount: u64) -
 
     let now = Clock::get()?.unix_timestamp;
 
-    if now < crowdfund_account.start_time || now > crowdfund_account.end_time {
+    if now < crowdfund_account.start_time {
         return Err(ErrorCode::NoStared.into());
+    }else if now > crowdfund_account.end_time {
+        return Err(ErrorCode::CampaignExpired.into());
     };
 
     // The crowdfunding has ended or failed
     if crowdfund_account.state > 0 {
-        return Err(ErrorCode::NoStared.into());
+        return Err(ErrorCode::CampaignExpired.into());
     };
-    
-    let lack_money = crowdfund_account.target_amount - crowdfund_account.raised_amount;
-    if amount > lack_money {
-        return Err(ErrorCode::AmountTooLarge.into());
-    }
 
     let cpi_accounts = TransferChecked {
         from: ctx.accounts.donation_token_account.to_account_info(),
         to: ctx.accounts.campaign_token_account.to_account_info(),
         mint: ctx.accounts.mint.to_account_info(),
-        authority: ctx.accounts.donation_token_account.to_account_info()
+        authority: ctx.accounts.donor.to_account_info()
     };
 
     let cpi_ctx = CpiContext::new(
@@ -88,7 +85,7 @@ pub fn proccess_donation_record(ctx: Context<InitDonationRecord>, amount: u64) -
     transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
 
     crowdfund_account.raised_amount += amount;
-    if crowdfund_account.raised_amount == crowdfund_account.target_amount {
+    if crowdfund_account.raised_amount >= crowdfund_account.target_amount {
         crowdfund_account.state = 1;
     };
 

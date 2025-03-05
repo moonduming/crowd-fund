@@ -15,13 +15,12 @@ pub struct InitCrowdfund<'info> {
         init,
         payer = payer,
         token::mint = mint,
-        token::authority = campaign_token_account,
+        token::authority = crowdfund_account,
         seeds = [b"campaign", mint.key().as_ref()],
         bump
     )]
     pub campaign_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    /// TODO seeds用payer是否合适？
     #[account(
         init,
         payer = payer,
@@ -51,6 +50,7 @@ pub fn proccess_crowdfund(
     crowdfund_account.raised_amount = 0;
     crowdfund_account.start_time = start_time;
     crowdfund_account.end_time = end_time;
+    crowdfund_account.is_withdrawals = false;
 
     Ok(())
 }
