@@ -26,18 +26,22 @@ pub mod crowd_fund {
     }
 
     pub fn donation(ctx: Context<InitDonationRecord>, amount: u64) -> Result<()> {
+        msg!("donate {}", amount);
         proccess_donation_record(ctx, amount)
     }
 
     pub fn withdraw(ctx: Context<DonationWithdrawal>) -> Result<()> {
+        msg!("withdrawl token");
         process_donation_withdrawal(ctx)
     }
     
     pub fn refund(ctx: Context<Refund>) -> Result<()> {
+        msg!("refund");
         proccess_refund(ctx)
     }
 
     pub fn finalize(ctx: Context<Finalize>) -> Result<()> {
+        msg!("finalize");
         proccess_finalize(ctx)
     }
 }

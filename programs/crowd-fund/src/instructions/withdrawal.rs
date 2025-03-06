@@ -44,8 +44,8 @@ pub struct DonationWithdrawal<'info> {
 
 
 pub fn process_donation_withdrawal(ctx: Context<DonationWithdrawal>) -> Result<()> {
-    let crowdfund_account_to_info = ctx.accounts.crowdfund_account.to_account_info();
-    let crowdfund_account = &mut ctx.accounts.crowdfund_account;
+    // let crowdfund_account_to_info = ctx.accounts.crowdfund_account.to_account_info();
+    let crowdfund_account = &ctx.accounts.crowdfund_account;
     let now = Clock::get()?.unix_timestamp;
 
     if now < crowdfund_account.start_time {
@@ -60,29 +60,31 @@ pub fn process_donation_withdrawal(ctx: Context<DonationWithdrawal>) -> Result<(
         return Err(ErrorCode::NotReaching.into());
     };
     
-    let mint_key = ctx.accounts.mint.key();
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        b"campaign", 
-        mint_key.as_ref(),
-        &[ctx.bumps.campaign_token_account]
+    msg!("withdraw_token_account key: {}", ctx.accounts.withdraw_token_account.key());
+    let singer_key = ctx.accounts.singer.key();
+    let signer_seeds: &[&[&[u8]]] = &[&[ 
+        singer_key.as_ref(),
+        &[ctx.bumps.crowdfund_account]
     ]];
 
+    
     let cpi_account = TransferChecked {
         from: ctx.accounts.campaign_token_account.to_account_info(),
         to: ctx.accounts.withdraw_token_account.to_account_info(),
         mint: ctx.accounts.mint.to_account_info(),
-        authority: crowdfund_account_to_info
+        authority: ctx.accounts.crowdfund_account.to_account_info()
     };
 
+    
     let cpi_ctx = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(), 
         cpi_account, 
         signer_seeds
     );
-
+    
     transfer_checked(cpi_ctx, crowdfund_account.target_amount, ctx.accounts.mint.decimals)?;
-
-    crowdfund_account.is_withdrawals = true;
+    
+    ctx.accounts.crowdfund_account.is_withdrawals = true;
 
     Ok(())
 }

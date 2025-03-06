@@ -50,6 +50,7 @@ pub fn proccess_crowdfund(
     crowdfund_account.raised_amount = 0;
     crowdfund_account.start_time = start_time;
     crowdfund_account.end_time = end_time;
+    crowdfund_account.state = 0;
     crowdfund_account.is_withdrawals = false;
 
     Ok(())

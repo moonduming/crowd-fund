@@ -76,16 +76,17 @@ pub fn proccess_donation_record(ctx: Context<InitDonationRecord>, amount: u64) -
         mint: ctx.accounts.mint.to_account_info(),
         authority: ctx.accounts.donor.to_account_info()
     };
-
+    
     let cpi_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(), 
         cpi_accounts
     );
-
+    
     transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
-
+    
     crowdfund_account.raised_amount += amount;
     if crowdfund_account.raised_amount >= crowdfund_account.target_amount {
+        msg!("raised_amount: {}", crowdfund_account.raised_amount);
         crowdfund_account.state = 1;
     };
 
@@ -93,6 +94,6 @@ pub fn proccess_donation_record(ctx: Context<InitDonationRecord>, amount: u64) -
     donation_record_account.campaign = crowdfund_account.escrow_account;
     donation_record_account.donor = ctx.accounts.donor.key();
     donation_record_account.is_refunded = false;
-
+    
     Ok(())
 }
