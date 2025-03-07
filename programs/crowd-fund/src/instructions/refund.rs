@@ -1,35 +1,49 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked}};
+use anchor_spl::{
+    associated_token::AssociatedToken, 
+    token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked}
+};
 
-use crate::{error::ErrorCode, state::{Crowdfund, DonationRecord}};
+use crate::{
+    error::ErrorCode, 
+    state::{Crowdfund, DonationRecord, CampaignState}
+};
+
+
+#[event]
+pub struct RefundMade {
+    pub refunder: Pubkey,
+    pub payee: Pubkey,
+    pub amount: u64
+}
 
 
 #[derive(Accounts)]
 pub struct Refund<'info> {
     #[account(mut)]
-    pub signer: Signer<'info>,
+    pub donor: SystemAccount<'info>,
 
-    pub maker: SystemAccount<'info>,
+    pub weekly_planner: SystemAccount<'info>,
     
     pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
-        seeds = [maker.key().as_ref()],
+        seeds = [weekly_planner.key().as_ref()],
         bump
     )]
-    pub crowfund_account: Account<'info, Crowdfund>,
+    pub crowdfund_account: Account<'info, Crowdfund>,
 
     #[account(
         mut,
-        seeds = [signer.key().as_ref()],
+        seeds = [donor.key().as_ref()],
         bump
     )]
-    pub dontaion_record_account: Account<'info, DonationRecord>,
+    pub donation_record_account: Account<'info, DonationRecord>,
 
     #[account(
         mut,
         associated_token::mint = mint,
-        associated_token::authority = signer,
+        associated_token::authority = donor,
         associated_token::token_program = token_program
     )]
     pub donation_token_account: InterfaceAccount<'info, TokenAccount>,
@@ -37,7 +51,7 @@ pub struct Refund<'info> {
     #[account(
         mut,
         token::mint = mint,
-        token::authority = crowfund_account,
+        token::authority = crowdfund_account,
         seeds = [b"campaign", mint.key().as_ref()],
         bump
     )]
@@ -48,31 +62,31 @@ pub struct Refund<'info> {
     pub token_program: Interface<'info, TokenInterface>
 }
 
-
 pub fn proccess_refund(ctx: Context<Refund>) -> Result<()> {
-    let crowdfunc_account_to_info = ctx.accounts.crowfund_account.to_account_info();
-    let crowfund_account = &ctx.accounts.crowfund_account;
-    if crowfund_account.state != 2 {
-        return Err(ErrorCode::RefundNotAllowed.into());
-    };
-
-    let dontaion_record_account = &mut ctx.accounts.dontaion_record_account;
-    if dontaion_record_account.is_refunded {
-        return Err(ErrorCode::AlreadyRefunded.into());
-    };
-
-    let mint_key = ctx.accounts.mint.key();
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        b"campaign", 
-        mint_key.as_ref(),
-        &[ctx.bumps.campaign_token_account]
-    ]];
+    let crowdfund_account = &ctx.accounts.crowdfund_account;
     
+    require!(
+        crowdfund_account.get_state() == Some(CampaignState::Fail),
+        ErrorCode::RefundNotAllowed
+    );
+
+    let donation_record_account = &mut ctx.accounts.donation_record_account;
+    require!(
+        !donation_record_account.is_refunded,
+        ErrorCode::AlreadyRefunded
+    );
+
+    let weekly_planner_key = ctx.accounts.weekly_planner.key();
+    let signer_seeds: &[&[&[u8]]] = &[&[
+        weekly_planner_key.as_ref(),
+        &[ctx.bumps.crowdfund_account]
+    ]];
+
     let cpi_accounts = TransferChecked {
         from: ctx.accounts.campaign_token_account.to_account_info(),
         to: ctx.accounts.donation_token_account.to_account_info(),
         mint: ctx.accounts.mint.to_account_info(),
-        authority: crowdfunc_account_to_info
+        authority: ctx.accounts.crowdfund_account.to_account_info(),
     };
 
     let cpi_ctx = CpiContext::new_with_signer(
@@ -81,9 +95,15 @@ pub fn proccess_refund(ctx: Context<Refund>) -> Result<()> {
         signer_seeds
     );
 
-    transfer_checked(cpi_ctx, dontaion_record_account.amount, ctx.accounts.mint.decimals)?;
+    transfer_checked(cpi_ctx, donation_record_account.amount, ctx.accounts.mint.decimals)?;
 
-    dontaion_record_account.is_refunded = true;
+    donation_record_account.is_refunded = true;
+
+    emit!(RefundMade {
+        refunder: ctx.accounts.weekly_planner.key(),
+        payee: ctx.accounts.donor.key(),
+        amount: donation_record_account.amount
+    });
 
     Ok(())
 }

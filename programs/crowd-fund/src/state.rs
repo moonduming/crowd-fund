@@ -1,5 +1,24 @@
 use anchor_lang::prelude::*;
 
+// Define an enum for campaign state
+#[repr(u8)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+pub enum CampaignState {
+    Active = 0,   // in progress
+    Success = 1,  // success
+    Fail = 2,     // fail
+}
+
+impl CampaignState {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(CampaignState::Active),
+            1 => Some(CampaignState::Success),
+            2 => Some(CampaignState::Fail),
+            _ => None,
+        }
+    }
+}
 
 #[account]
 #[derive(InitSpace)]
@@ -12,10 +31,17 @@ pub struct Crowdfund {
     pub end_time: i64,
     pub target_amount: u64,
     pub raised_amount: u64,
-    // 0: in progress 1: success 2: fail
+    // Store campaign state as u8 to avoid Space trait issue
     pub state: u8,
-    pub is_withdrawals: bool
+    pub is_withdrawals: bool,
 }
+
+impl Crowdfund {
+    pub fn get_state(&self) -> Option<CampaignState> {
+        CampaignState::from_u8(self.state)
+    }
+}
+
 
 
 #[account]
@@ -24,5 +50,5 @@ pub struct DonationRecord {
     pub campaign: Pubkey,
     pub donor: Pubkey,
     pub amount: u64,
-    pub is_refunded: bool
+    pub is_refunded: bool,
 }

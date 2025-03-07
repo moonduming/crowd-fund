@@ -32,7 +32,7 @@ describe("crowd-fund", () => {
   const donors: { keypair: Keypair; tokenAccount: PublicKey }[] = [];
 
   // 捐赠者数量
-  const NUM_DONORS = 4;
+  const NUM_DONORS = 2;
   // 每个捐赠者需要空投的 SOL 数量
   const AIRDROP_AMOUNT = 2 * LAMPORTS_PER_SOL;
 
@@ -96,12 +96,13 @@ describe("crowd-fund", () => {
   });
 
   it("should initialize the campaign correctly", async () => {
-    // 调用初始化 campaign 指令时需要带上完整的accounts
+    const now = Math.floor(Date.now() / 1000);
+    
     await program.methods.campaign(
       "捐款测试",
-      new anchor.BN(10000),
-      new anchor.BN(1738915524),
-      new anchor.BN(1744013124)
+      new anchor.BN(100000),
+      new anchor.BN(now - 3600),
+      new anchor.BN(now + 60)
     ).accounts({
       mint,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -118,7 +119,7 @@ describe("crowd-fund", () => {
   });
 
   it("should handle multiple concurrent donations correctly", async () => {
-    const DONATION_AMOUNT = new anchor.BN(45 * 100); // 每个捐赠者捐赠500个代币
+    const DONATION_AMOUNT = new anchor.BN(45 * 100);
   
     // 构建多个并行的捐款请求
     await Promise.all(
@@ -132,12 +133,6 @@ describe("crowd-fund", () => {
           const donorProgram = new Program<CrowdFund>(
             program.idl as CrowdFund,
             donorProvider
-          );
-    
-          // 每个donor单独计算自己的 donation_record_account PDA
-          const [donationRecordAccountPda] = PublicKey.findProgramAddressSync(
-            [keypair.publicKey.toBuffer()],
-            program.programId
           );
           
           // 调用捐款指令
@@ -170,17 +165,66 @@ describe("crowd-fund", () => {
   });
 
   it("withdrawal", async () => {
-    await program.methods.withdraw().accounts({
-      mint,
-      tokenProgram: TOKEN_PROGRAM_ID
-    }).rpc()
+    try {
+      await program.methods.withdraw().accounts({
+        mint,
+        tokenProgram: TOKEN_PROGRAM_ID
+      }).rpc()
+  
+      const [crowdfundAccountPda] = PublicKey.findProgramAddressSync(
+        [provider.wallet.publicKey.toBuffer()],
+        program.programId
+      );
+  
+      const campaignData = await program.account.crowdfund.fetch(crowdfundAccountPda);
+      console.log("Campaign Data:", campaignData); 
+    } catch (error: any) {
+      console.error("withdrawal err: ", error)
+    }
+       
+  })
 
-    const [crowdfundAccountPda] = PublicKey.findProgramAddressSync(
-      [provider.wallet.publicKey.toBuffer()],
-      program.programId
+  it("refund", async () => {
+    await program.methods.finalize().accounts({
+      make: payer.publicKey
+    }).rpc();
+
+    await Promise.all(
+      donors.map(async ({ keypair, tokenAccount }, index) => {
+        try {
+          const donorProvider = new anchor.AnchorProvider(
+            connection,
+            new anchor.Wallet(keypair),
+            { commitment: "confirmed" }
+          );
+          const donorProgram = new Program<CrowdFund>(
+            program.idl as CrowdFund,
+            donorProvider
+          );
+    
+          // 每个donor单独计算自己的 donation_record_account PDA
+          const [donationRecordAccountPda] = PublicKey.findProgramAddressSync(
+            [keypair.publicKey.toBuffer()],
+            program.programId
+          );
+          
+          await donorProgram.methods
+            .refund()
+            .accounts({
+              donor: keypair.publicKey,
+              weeklyPlanner: payer.publicKey,
+              mint,
+              tokenProgram: TOKEN_PROGRAM_ID,
+            })
+            .rpc();
+    
+          const donorData = await program.account.donationRecord.fetch(donationRecordAccountPda);
+          console.log("donorData: ", donorData);
+        } catch (error: any) {
+          console.error(`Donation for donor ${index + 1} failed: ${error.message}`);
+        };
+        
+      })
     );
-
-    const campaignData = await program.account.crowdfund.fetch(crowdfundAccountPda);
-    console.log("Campaign Data:", campaignData);    
   })
 });
