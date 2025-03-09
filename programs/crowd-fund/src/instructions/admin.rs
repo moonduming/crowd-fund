@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::{associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface}};
 use crate::{error::ErrorCode, state::{CampaignState, Crowdfund}};
 
 
@@ -20,10 +20,9 @@ pub struct InitCrowdfund<'info> {
     #[account(
         init,
         payer = payer,
-        token::mint = mint,
-        token::authority = crowdfund_account,
-        seeds = [b"campaign", mint.key().as_ref()],
-        bump
+        associated_token::mint = mint,
+        associated_token::authority = crowdfund_account,
+        associated_token::token_program = token_program
     )]
     pub campaign_token_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -37,7 +36,8 @@ pub struct InitCrowdfund<'info> {
     pub crowdfund_account: Account<'info, Crowdfund>,
 
     pub system_program: Program<'info, System>,
-    pub token_program: Interface<'info, TokenInterface>
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>
 }
 
 pub fn proccess_crowdfund(

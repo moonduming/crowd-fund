@@ -29,10 +29,9 @@ pub struct InitDonationRecord<'info> {
 
     #[account(
         mut,
-        token::mint = mint,
-        token::authority = crowdfund_account,
-        seeds = [b"campaign", mint.key().as_ref()],
-        bump
+        associated_token::mint = mint,
+        associated_token::authority = crowdfund_account,
+        associated_token::token_program = token_program
     )]
     pub campaign_token_account: InterfaceAccount<'info, TokenAccount>,
 
