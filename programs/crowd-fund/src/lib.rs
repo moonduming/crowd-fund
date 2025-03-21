@@ -44,5 +44,15 @@ pub mod crowd_fund {
         msg!("finalize");
         proccess_finalize(ctx)
     }
+
+    pub fn set_merkle_root(ctx: Context<SetMerkleRoot>, merkle_root: [u8; 32]) -> Result<()> {
+        msg!("save merkle root");
+        proccess_merkle_root(ctx, merkle_root)
+    }
+    
+    pub fn reward_claim(ctx: Context<RewardClaim>, proof: Vec<[u8; 32]>) -> Result<()> {
+        msg!("reward claim");
+        proccess_reward_claim(ctx, proof)
+    }
 }
 

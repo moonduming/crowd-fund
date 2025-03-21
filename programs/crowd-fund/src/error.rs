@@ -31,4 +31,10 @@ pub enum ErrorCode {
 
     #[msg("Arithmetic overflow occurred.")]
     Overflow,
+
+    #[msg("The campaign has not reached a successful state.")]
+    CampaignNotSuccessful,
+
+    #[msg("Invalid Merkle Proof: computed root does not match.")]
+    InvalidMerkleProof,
 }

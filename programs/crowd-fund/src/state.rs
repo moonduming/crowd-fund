@@ -31,9 +31,9 @@ pub struct Crowdfund {
     pub end_time: i64,
     pub target_amount: u64,
     pub raised_amount: u64,
-    // Store campaign state as u8 to avoid Space trait issue
     pub state: u8,
     pub is_withdrawals: bool,
+    pub merkle_root: [u8; 32]
 }
 
 impl Crowdfund {
